@@ -81,7 +81,6 @@ async function getGraphToken(backEndAccessToken) {
       console.log(error);
       console.log(`getGraphToken:error.type = ${error.type}`);
       console.log(`getGraphToken:error.message = ${error.message}`);
-      console.log(`getGraphToken:error = ${JSON.stringify(error)}`};
 
   }
 }
