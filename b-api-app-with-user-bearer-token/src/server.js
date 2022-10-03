@@ -73,10 +73,17 @@ async function getGraphToken(backEndAccessToken) {
   // If you aren't using Easy Auth with App Service, 
   // you must validate your access token
 
+  try{
+      const { accessToken } = await clientCredentialAuthority.acquireTokenOnBehalfOf(oboRequest);
+      console.log(`graphAccessToken: ${accessToken}`);
+      return accessToken;
+  } catch(error){
+      console.log(error);
+      console.log(`getGraphToken:error.type = ${error.type}`);
+      console.log(`getGraphToken:error.message = ${error.message}`);
+      console.log(`getGraphToken:error = ${JSON.stringify(error)}`};
 
-  const { accessToken } = await clientCredentialAuthority.acquireTokenOnBehalfOf(oboRequest);
-  console.log(`graphAccessToken: ${accessToken}`);
-  return accessToken;
+  }
 }
 
 function getAuthenticatedClient(accessToken) {
