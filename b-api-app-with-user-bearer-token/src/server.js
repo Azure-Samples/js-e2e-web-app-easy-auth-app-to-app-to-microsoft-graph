@@ -55,8 +55,8 @@ async function getGraphToken(backEndAccessToken) {
   };
 
   console.log(`getGraphToken:backendAccessToken = ${backEndAccessToken}`);
-  console.log(`getGraphToken:clientId = ${auth.clientId}`);
-  console.log(`getGraphToken:authority = ${auth.authority}`);
+  console.log(`getGraphToken:clientId = ${config.auth.clientId}`);
+  console.log(`getGraphToken:authority = ${config.auth.authority}`);
 
   const clientCredentialAuthority = new MSAL.ConfidentialClientApplication(config);
 
