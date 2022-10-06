@@ -39,6 +39,10 @@ export const getRemoteProfile = async (remoteUrl, accessToken) => {
                 bearerToken: apiResponse.bearerToken,
             };
         } else {
+            
+            const textError = await response.text();
+            console.log(`api Fetch error text = ${textError}`);
+            
             return {
                 error: {
                     error: new HTTPResponseError(response),
