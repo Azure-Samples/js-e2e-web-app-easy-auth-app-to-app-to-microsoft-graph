@@ -7,6 +7,7 @@ export const getRemoteProfile = async (remoteUrl, accessToken) => {
     try {
 
         if (!remoteUrl || !accessToken) {
+            console.log(`!remoteUrl || !accessToken`);
             return {
                 error: 'Client: No remote URL or access token found'
             };
@@ -41,7 +42,7 @@ export const getRemoteProfile = async (remoteUrl, accessToken) => {
             return {
                 error: {
                     error: new HTTPResponseError(response),
-                    message: "api response not ok", 
+                    message: `api response not ok ${response.statusCode}`, 
                     type: "getRemoteProfile - api response",
 
                 }
