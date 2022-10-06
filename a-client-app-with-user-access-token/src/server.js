@@ -34,7 +34,7 @@ const refreshToken = async function (req, _, next) {
 
   // Decode token
   req.tokenMiddleware.decoded = jwt_decode(req.tokenMiddleware.token);
-  console.log(`refreshToken::req.tokenMiddleware.decoded= ${req.tokenMiddleware.decoded}`);
+  console.log(`refreshToken::req.tokenMiddleware.decoded= ${JSON.stringify(req.tokenMiddleware.decoded)}`);
 
   // Check if token is expired
   req.tokenMiddleware.isExpired = isTokenExpired(req.tokenMiddleware.decoded.exp);
