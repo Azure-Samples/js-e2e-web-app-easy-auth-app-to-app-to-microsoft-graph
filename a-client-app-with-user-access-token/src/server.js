@@ -38,16 +38,16 @@ const refreshToken = async function (req, _, next) {
 
   // Check if token is expired
   req.tokenMiddleware.isExpired = isTokenExpired(req.tokenMiddleware.decoded.exp);
-  console.log(`refreshToken::req.tokenMiddleware.isExpired= ${JSON.stringify(req.tokenMiddleware.isExpired})`);
+  console.log(`refreshToken::req.tokenMiddleware.isExpired= ${JSON.stringify(req.tokenMiddleware.isExpired)})`);
 
   // If token is expired, refresh it
   if (req.tokenMiddleware.isExpired.expired) {
 
-    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.isExpired.expired})`);
+    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.isExpired.expired)})`);
 
     const refreshUrl = `https://${req.headers.host}/.auth/refresh`;
     req.tokenMiddleware.refreshedTokenResult = await refreshTokenInMiddleware(refreshUrl, req.tokenMiddleware.token);
-    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.refreshedTokenResult})`);
+    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.refreshedTokenResult)})`);
   }
   return next();
 }
