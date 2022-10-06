@@ -26,16 +26,19 @@ const refreshToken = async function (req, _, next) {
 
   // Get token from injected headers
   req.tokenMiddleware.token = req.headers['x-ms-token-aad-access-token'];
+  console.log(`refreshToken::req.headers['x-ms-token-aad-access-token']= ${req.headers['x-ms-token-aad-access-token']}`);
+  
   if (!req.tokenMiddleware.token) {
-    console.log(`access-token-middleware - !req.tokenMiddleware.token`);
     return next();
   }
 
   // Decode token
   req.tokenMiddleware.decoded = jwt_decode(req.tokenMiddleware.token);
+  console.log(`refreshToken::req.tokenMiddleware.decoded= ${req.tokenMiddleware.decoded}`);
 
   // Check if token is expired
-  req.tokenMiddleware.isExpired = isTokenExpired(req.tokenMiddleware.decoded.exp)
+  req.tokenMiddleware.isExpired = isTokenExpired(req.tokenMiddleware.decoded.exp);
+  console.log(`refreshToken::req.tokenMiddleware.isExpired= ${req.tokenMiddleware.isExpired}`);
 
   // If token is expired, refresh it
   if (req.tokenMiddleware.isExpired.expired) {
@@ -107,6 +110,7 @@ export const create = async () => {
         ? process.env.API_B_URL
         : "http://localhost:8081/get-profile";
       if (!remoteUrl) {
+        console.log(`/get-profile:!remoteUrl= ${!remoteUrl}`);
         return res.render(`${__dirname}/views/profile`, { error: 'Client: No remote URL found' });
       } else {
         console.log(`remoteUrl = ${remoteUrl}`);
@@ -114,6 +118,7 @@ export const create = async () => {
 
       // Get access token from injected header
       let accessToken = req.headers['x-ms-token-aad-access-token'];
+      console.log(`/get-profile:accessToken= ${accessToken}`);
       if (!accessToken) {
         return res.render(`${__dirname}/views/profile`, { error: 'Client: No access token found' });
       }
