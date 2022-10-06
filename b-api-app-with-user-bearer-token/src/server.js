@@ -128,6 +128,9 @@ export const create = async () => {
 
   // Get root
   app.get('/debug', async (req, res) => {
+    
+    console.log("/debug requested");
+    
     res.send(prettyJson(sortJson({
       tenantId: getTenantId(),
       headers: sortJson(req.headers),
@@ -138,7 +141,7 @@ export const create = async () => {
   // Get Profile and return to client
   app.get('/get-profile', async (req, res) => {
 
-    console.log("/get-profile");
+    console.log("/get-profile requested");
 
     let profile;
     let accessToken;
@@ -178,7 +181,7 @@ export const create = async () => {
 
   // instead of 404 - just return home page
   app.get('*', (req, res) => {
-    res.redirect('/');
+    res.json({status: "unknown url request"});
   });
 
   return app;
