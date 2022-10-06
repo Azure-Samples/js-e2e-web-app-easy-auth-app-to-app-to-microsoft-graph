@@ -125,6 +125,7 @@ export const create = async () => {
 
   // Create express app
   const app = express();
+  console.log("create app");
 
   // Get root
   app.get('/debug', async (req, res) => {
@@ -150,11 +151,17 @@ export const create = async () => {
     try {
 
       bearerToken = req.headers['Authorization'] || req.headers['authorization'];
-      if (!bearerToken) return res.status(401).json({ error: 'No bearer token found' });
+      if (!bearerToken)  {
+        console.log(`'No bearer token found'`);
+        return res.status(401).json({ error: 'No bearer token found' });
+      }
       console.log(`bearerToken: ${bearerToken}`);
 
       accessToken = bearerToken.split(' ')[1];
-      if (!accessToken) return res.status(401).json({ error: 'No access token found' });
+      if (!accessToken){
+        console.log(`'No access token found'`);
+        return res.status(401).json({ error: 'No access token found' });
+      } 
       console.log(`accessToken: ${accessToken}`);
 
       profile = await getGraphProfile(accessToken);
@@ -168,7 +175,7 @@ export const create = async () => {
       });
 
     } catch (err) {
-      console.log(`err: ${JSON.stringify(err)}`);
+      console.log(`/get-profile err: ${JSON.stringify(err)}`);
       return res.status(200).json({
         error: {
           "profile": "error",
