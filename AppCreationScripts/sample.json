@@ -1,0 +1,92 @@
+{
+    "Sample": {
+      "Author": "v-abeyderman",
+      "Title": "How to secure an ASP.NET Core Web API with the Microsoft identity platform",
+      "Level": 200,
+      "Client": "client",
+      "Service": "api",
+      "RepositoryUrl": "active-directory-aspnetcore-webapp-openidconnect-v2",
+      "Endpoint": "AAD v2.0",
+      "Description": "This sample demonstrates an ASP.NET Core Web App signing-in a user and calling an ASP.NET Core Web API that is secured with Azure AD.",
+      "Languages": [ "javascript" ],
+      "Products": [ "aspnet-core", "azure-active-directory" ],
+      "Library":["Microsoft.Identity.Web"]
+    },
+    "AADApps": [
+      {
+        "Id": "api",
+        "Name": "api",
+        "Kind": "WebApi",
+        "Audience": "AzureADMyOrg",
+        "HomePage": "https://localhost:44321/",
+        "EnableIdTokenIssuence": true,
+        "PasswordCredentials": "Auto",
+        "Scopes": [
+          "user_impersonation_2"
+        ],
+        "AppRoles": [
+        ],
+        "RequiredResourcesAccess": [
+          {
+            "Resource": "Microsoft Graph",
+            "DelegatedPermissions": [ "User.Read" ]
+          }
+        ]
+      },
+      {
+        "Id": "client",
+        "Kind": "WebApp",
+        "Audience": "AzureADMyOrg",
+        "Name": "client",
+        "ReplyUrls": "https://client.azurewebsites.net/.auth/login/aad/callback",
+        "EnableIdTokenIssuence": true,
+        "RequiredResourcesAccess": [
+          {
+            "Resource": "api",
+            "DelegatedPermissions": [ "user_impersonation_2"]
+          }
+        ]
+      }
+    ],
+    "CodeConfiguration": [
+      {
+        "App": "api",
+        "SettingKind": "REPLACE",
+        "SettingFile": "\\..\\authConfig.js",
+        "Mappings": [
+          {
+            "key": "api:Tenant",
+            "value": "$tenantName"
+          },
+          {
+            "key": "api:AppKey",
+            "value": "api.AppKey"
+          },
+          {
+            "key": "api:ClientID",
+            "value": "api.AppId"
+          }
+        ]
+      },
+  
+      {
+        "App": "client",
+        "SettingKind": "REPLACE",
+        "SettingFile": "\\..\\authConfig.js",
+        "Mappings": [
+          {
+            "key": "client:Tenant",
+            "value": "$tenantName"
+          },
+          {
+            "key": "client:ClientId",
+            "value": "client.AppId"
+          },
+          {
+            "key": "client:ClientScope",
+            "value": "api.Scope"
+          }
+        ]
+      }
+    ]
+  }

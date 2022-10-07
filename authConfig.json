@@ -1,0 +1,10 @@
+{
+    "apiTenant": "api:Tenant",
+    "apiAudience": "api:Audience",
+    "apiKey":"api:AppKey",
+    "apiId":"api:ClientID",
+
+    "clientTenant": "client:Tenant",
+    "clientId":"client:ClientID",
+    "clientScope": "client:ClientScope"
+}
