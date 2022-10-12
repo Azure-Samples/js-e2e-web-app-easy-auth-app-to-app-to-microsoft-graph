@@ -84,6 +84,44 @@ Function GetRequiredPermissions([string] $applicationDisplayName, [string] $requ
     return $requiredAccess
 }
 
+
+<#.Description
+   This function takes a string input as a single line, matches a key value and replaces with the replacement value
+#>     
+Function ReplaceInLine([string] $line, [string] $key, [string] $value)
+{
+    $index = $line.IndexOf($key)
+    if ($index -ige 0)
+    {
+        $index2 = $index+$key.Length
+        $line = $line.Substring(0, $index) + $value + $line.Substring($index2)
+    }
+    return $line
+}
+
+<#.Description
+   This function takes a dictionary of keys to search and their replacements and replaces the placeholders in a text file
+#>     
+Function ReplaceInTextFile([string] $configFilePath, [System.Collections.HashTable] $dictionary)
+{
+    $lines = Get-Content $configFilePath
+    $index = 0
+    while($index -lt $lines.Length)
+    {
+        $line = $lines[$index]
+        foreach($key in $dictionary.Keys)
+        {
+            if ($line.Contains($key))
+            {
+                $lines[$index] = ReplaceInLine $line $key $dictionary[$key]
+            }
+        }
+        $index++
+    }
+
+    Set-Content -Path $configFilePath -Value $lines -Force
+}
+
 <#.Description
    This function creates a new Azure AD scope (OAuth2Permission) with default and provided values
 #>  
@@ -206,42 +244,47 @@ Function ConfigureApplications
     }
     
 
-   # Create the api AAD application
-   Write-Host "Creating the AAD application (api)"
-   # Get a 6 months application key for the api Application
+   # Create the service AAD application
+   Write-Host "Creating the AAD application (my-web-api)"
+   # Get a 6 months application key for the service Application
    $fromDate = [DateTime]::Now;
    $key = CreateAppKey -fromDate $fromDate -durationInMonths 6
    
    
    # create the application 
-   $apiAadApplication = New-MgApplication -DisplayName "api" `
-                                                   -Web `
-                                                   @{ `
-                                                       HomePageUrl = "https://localhost:44321/"; `
-                                                     } `
-                                                     -Api `
-                                                     @{ `
-                                                        RequestedAccessTokenVersion = 2 `
-                                                     } `
-                                                    -SignInAudience AzureADMyOrg `
-                                                   #end of command
-    #add a secret to the application
-    $pwdCredential = Add-MgApplicationPassword -ApplicationId $apiAadApplication.Id -PasswordCredential $key
-    $apiAppKey = $pwdCredential.SecretText
+   $serviceAadApplication = New-MgApplication -DisplayName "my-web-api" `
+                                                       -Web `
+                                                       @{ `
+                                                           HomePageUrl = "https://localhost:44321/"; `
+                                                           ImplicitGrantSettings = @{ `
+                                                               EnableIdTokenIssuance=$true; `
+                                                           } `
+                                                         } `
+                                                         -Api `
+                                                         @{ `
+                                                            RequestedAccessTokenVersion = 2 `
+                                                         } `
+                                                        -SignInAudience AzureADMyOrg `
+                                                       #end of command
 
-    $apiIdentifierUri = 'api://'+$apiAadApplication.AppId
-    Update-MgApplication -ApplicationId $apiAadApplication.Id -IdentifierUris @($apiIdentifierUri)
+    #add a secret to the application
+    $pwdCredential = Add-MgApplicationPassword -ApplicationId $serviceAadApplication.Id -PasswordCredential $key
+    $serviceAppKey = $pwdCredential.SecretText
+
+    $serviceIdentifierUri = 'api://'+$serviceAadApplication.AppId
+    Update-MgApplication -ApplicationId $serviceAadApplication.Id -IdentifierUris @($serviceIdentifierUri)
+
     
     # create the service principal of the newly created application 
-    $currentAppId = $apiAadApplication.AppId
-    $apiServicePrincipal = New-MgServicePrincipal -AppId $currentAppId -Tags {WindowsAzureActiveDirectoryIntegratedApp}
+    $currentAppId = $serviceAadApplication.AppId
+    $serviceServicePrincipal = New-MgServicePrincipal -AppId $currentAppId -Tags {WindowsAzureActiveDirectoryIntegratedApp}
 
     # add the user running the script as an app owner if needed
-    $owner = Get-MgApplicationOwner -ApplicationId $apiAadApplication.Id
+    $owner = Get-MgApplicationOwner -ApplicationId $serviceAadApplication.Id
     if ($owner -eq $null)
     { 
-        New-MgApplicationOwnerByRef -ApplicationId $apiAadApplication.Id  -BodyParameter = @{"@odata.id" = "htps://graph.microsoft.com/v1.0/directoryObjects/$user.ObjectId"}
-        Write-Host "'$($user.UserPrincipalName)' added as an application owner to app '$($apiServicePrincipal.DisplayName)'"
+        New-MgApplicationOwnerByRef -ApplicationId $serviceAadApplication.Id  -BodyParameter = @{"@odata.id" = "htps://graph.microsoft.com/v1.0/directoryObjects/$user.ObjectId"}
+        Write-Host "'$($user.UserPrincipalName)' added as an application owner to app '$($serviceServicePrincipal.DisplayName)'"
     }
 
     # Add Claims
@@ -255,49 +298,49 @@ Function ConfigureApplications
 
     $newClaim =  CreateOptionalClaim  -name "idtyp" 
     $optionalClaims.AccessToken += ($newClaim)
-    Update-MgApplication -ApplicationId $apiAadApplication.Id -OptionalClaims $optionalClaims
+    Update-MgApplication -ApplicationId $serviceAadApplication.Id -OptionalClaims $optionalClaims
     
     # rename the user_impersonation scope if it exists to match the readme steps or add a new scope
        
     # delete default scope i.e. User_impersonation
     # Alex: the scope deletion doesn't work - see open issue - https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/1054
     $scopes = New-Object System.Collections.Generic.List[Microsoft.Graph.PowerShell.Models.MicrosoftGraphPermissionScope]
-    $scope = $apiAadApplication.Api.Oauth2PermissionScopes | Where-Object { $_.Value -eq "User_impersonation" }
+    $scope = $serviceAadApplication.Api.Oauth2PermissionScopes | Where-Object { $_.Value -eq "User_impersonation" }
     
     if($scope -ne $null)
     {    
         # disable the scope
         $scope.IsEnabled = $false
         $scopes.Add($scope)
-        Update-MgApplication -ApplicationId $apiAadApplication.Id -Api @{Oauth2PermissionScopes = @($scopes)}
+        Update-MgApplication -ApplicationId $serviceAadApplication.Id -Api @{Oauth2PermissionScopes = @($scopes)}
 
         # clear the scope
-        Update-MgApplication -ApplicationId $apiAadApplication.Id -Api @{Oauth2PermissionScopes = @()}
+        Update-MgApplication -ApplicationId $serviceAadApplication.Id -Api @{Oauth2PermissionScopes = @()}
     }
 
     $scopes = New-Object System.Collections.Generic.List[Microsoft.Graph.PowerShell.Models.MicrosoftGraphPermissionScope]
-    $scope = CreateScope -value user_impersonation_2  `
-        -userConsentDisplayName "user_impersonation_2"  `
+    $scope = CreateScope -value user_impersonation  `
+        -userConsentDisplayName "user_impersonation"  `
         -userConsentDescription "eg. Allows the app to read your files."  `
-        -adminConsentDisplayName "user_impersonation_2"  `
+        -adminConsentDisplayName "user_impersonation"  `
         -adminConsentDescription "e.g. Allows the app to read the signed-in user's files."
             
     $scopes.Add($scope)
     
     # add/update scopes
-    Update-MgApplication -ApplicationId $apiAadApplication.Id -Api @{Oauth2PermissionScopes = @($scopes)}
-    Write-Host "Done creating the api application (api)"
+    Update-MgApplication -ApplicationId $serviceAadApplication.Id -Api @{Oauth2PermissionScopes = @($scopes)}
+    Write-Host "Done creating the service application (my-web-api)"
 
     # URL of the AAD application in the Azure portal
-    # Future? $apiPortalUrl = "https://portal.azure.com/#@"+$tenantName+"/blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/Overview/appId/"+$apiAadApplication.AppId+"/objectId/"+$apiAadApplication.Id+"/isMSAApp/"
-    $apiPortalUrl = "https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/CallAnAPI/appId/"+$apiAadApplication.AppId+"/objectId/"+$apiAadApplication.Id+"/isMSAApp/"
+    # Future? $servicePortalUrl = "https://portal.azure.com/#@"+$tenantName+"/blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/Overview/appId/"+$serviceAadApplication.AppId+"/objectId/"+$serviceAadApplication.Id+"/isMSAApp/"
+    $servicePortalUrl = "https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/CallAnAPI/appId/"+$serviceAadApplication.AppId+"/objectId/"+$serviceAadApplication.Id+"/isMSAApp/"
 
-    Add-Content -Value "<tr><td>api</td><td>$currentAppId</td><td><a href='$apiPortalUrl'>api</a></td></tr>" -Path createdApps.html
+    Add-Content -Value "<tr><td>service</td><td>$currentAppId</td><td><a href='$servicePortalUrl'>my-web-api</a></td></tr>" -Path createdApps.html
     # Declare a list to hold RRA items    
     $requiredResourcesAccess = New-Object System.Collections.Generic.List[Microsoft.Graph.PowerShell.Models.MicrosoftGraphRequiredResourceAccess]
 
-    # Add Required Resources Access (from 'api' to 'Microsoft Graph')
-    Write-Host "Getting access from 'api' to 'Microsoft Graph'"
+    # Add Required Resources Access (from 'service' to 'Microsoft Graph')
+    Write-Host "Getting access from 'service' to 'Microsoft Graph'"
     $requiredPermission = GetRequiredPermissions -applicationDisplayName "Microsoft Graph"`
         -requiredDelegatedPermissions "User.Read"
 
@@ -307,27 +350,31 @@ Function ConfigureApplications
     # $requiredResourcesAccess.Count
     # $requiredResourcesAccess
     
-    Update-MgApplication -ApplicationId $apiAadApplication.Id -RequiredResourceAccess $requiredResourcesAccess
-    Write-Host "Granted permissions."
-    
+    Update-MgApplication -ApplicationId $serviceAadApplication.Id -RequiredResourceAccess $requiredResourcesAccess
+    Write-Host "Granted permissions."    
     
 
     # print the registered app portal URL for any further navigation
-    Write-Host "Successfully registered and configured that app registration for 'api' at `n $apiPortalUrl" -ForegroundColor Red 
+    Write-Host "Successfully registered and configured that app registration for 'my-web-api' at `n $servicePortalUrl" -ForegroundColor Red 
 
    # Create the client AAD application
-   Write-Host "Creating the AAD application (client)"
+   Write-Host "Creating the AAD application (my-web-app)"
    
    # create the application 
-   $clientAadApplication = New-MgApplication -DisplayName "client" `
+   $clientAadApplication = New-MgApplication -DisplayName "my-web-app" `
                                                       -Web `
                                                       @{ `
-                                                          RedirectUris = "https://client.azurewebsites.net/.auth/login/aad/callback"; `
+                                                          RedirectUris = "https://client-a.azurewebsites.net/.auth/login/aad/callback"; `
+                                                          ImplicitGrantSettings = @{ `
+                                                              EnableIdTokenIssuance=$true; `
+                                                          } `
                                                         } `
                                                        -SignInAudience AzureADMyOrg `
                                                       #end of command
+
     $tenantName = (Get-MgApplication -ApplicationId $clientAadApplication.Id).PublisherDomain
-    Update-MgApplication -ApplicationId $clientAadApplication.Id -IdentifierUris @("https://$tenantName/client")
+    # Update-MgApplication -ApplicationId $clientAadApplication.Id -IdentifierUris @("https://$tenantName/my-web-app")
+
     
     # create the service principal of the newly created application 
     $currentAppId = $clientAadApplication.AppId
@@ -340,64 +387,65 @@ Function ConfigureApplications
         New-MgApplicationOwnerByRef -ApplicationId $clientAadApplication.Id  -BodyParameter = @{"@odata.id" = "htps://graph.microsoft.com/v1.0/directoryObjects/$user.ObjectId"}
         Write-Host "'$($user.UserPrincipalName)' added as an application owner to app '$($clientServicePrincipal.DisplayName)'"
     }
-    Write-Host "Done creating the client application (client)"
+    Write-Host "Done creating the client application (my-web-app)"
 
     # URL of the AAD application in the Azure portal
     # Future? $clientPortalUrl = "https://portal.azure.com/#@"+$tenantName+"/blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/Overview/appId/"+$clientAadApplication.AppId+"/objectId/"+$clientAadApplication.Id+"/isMSAApp/"
     $clientPortalUrl = "https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/CallAnAPI/appId/"+$clientAadApplication.AppId+"/objectId/"+$clientAadApplication.Id+"/isMSAApp/"
 
-    Add-Content -Value "<tr><td>client</td><td>$currentAppId</td><td><a href='$clientPortalUrl'>client</a></td></tr>" -Path createdApps.html
+    Add-Content -Value "<tr><td>client</td><td>$currentAppId</td><td><a href='$clientPortalUrl'>my-web-app</a></td></tr>" -Path createdApps.html
     # Declare a list to hold RRA items    
     $requiredResourcesAccess = New-Object System.Collections.Generic.List[Microsoft.Graph.PowerShell.Models.MicrosoftGraphRequiredResourceAccess]
 
-    # Add Required Resources Access (from 'client' to 'api')
-    Write-Host "Getting access from 'client' to 'api'"
-    $requiredPermission = GetRequiredPermissions -applicationDisplayName "api"`
-        -requiredDelegatedPermissions "user_impersonation_2"
+    # Add Required Resources Access (from 'client' to 'service')
+    Write-Host "Getting access from 'client' to 'service'"
+    $requiredPermission = GetRequiredPermissions -applicationDisplayName "my-web-api"`
+        -requiredDelegatedPermissions "user_impersonation"
 
     $requiredResourcesAccess.Add($requiredPermission)
-    Write-Host "Added 'api' to the RRA list."
+    Write-Host "Added 'service' to the RRA list."
     # Useful for RRA additions troubleshooting
     # $requiredResourcesAccess.Count
     # $requiredResourcesAccess
     
     Update-MgApplication -ApplicationId $clientAadApplication.Id -RequiredResourceAccess $requiredResourcesAccess
-    Write-Host "Granted permissions."
-    
+    Write-Host "Granted permissions."    
     
 
     # print the registered app portal URL for any further navigation
-    Write-Host "Successfully registered and configured that app registration for 'client' at `n $clientPortalUrl" -ForegroundColor Red 
+    Write-Host "Successfully registered and configured that app registration for 'my-web-app' at `n $clientPortalUrl" -ForegroundColor Red 
 
-    # Configure known client applications for api 
-    Write-Host "Configure known client applications for the 'api'"
+    # Configure known client applications for service 
+    Write-Host "Configure known client applications for the 'service'"
     $knowApplications = New-Object System.Collections.Generic.List[System.String]
     $knowApplications.Add($clientAadApplication.AppId)
-    Update-MgApplication -ApplicationId $apiAadApplication.Id -Api @{KnownClientApplications = $knowApplications}
+    Update-MgApplication -ApplicationId $serviceAadApplication.Id -Api @{KnownClientApplications = $knowApplications}
     Write-Host "knownclientapplication setting configured."
 
     
-    # Update config file for 'api'
+    # Update config file for 'service'
     # $configFile = $pwd.Path + "\..\authConfig.js"
     $configFile = $(Resolve-Path ($pwd.Path + "\..\authConfig.js"))
     
-    $dictionary = @{ "api:Tenant" = $tenantName;"api:AppKey" = $apiAppKey;"api:ClientID" = $apiAadApplication.AppId };
+    $dictionary = @{ "ida:Tenant" = $tenantName;"ida:Audience" = $serviceIdentifierUri;"ida:AppKey" = $serviceAppKey;"ida:ClientID" = $serviceAadApplication.AppId };
 
     Write-Host "Updating the sample config '$configFile' with the following config values:" -ForegroundColor Green 
     $dictionary
     Write-Host "-----------------"
 
+    ReplaceInTextFile -configFilePath $configFile -dictionary $dictionary
     
     # Update config file for 'client'
     # $configFile = $pwd.Path + "\..\authConfig.js"
     $configFile = $(Resolve-Path ($pwd.Path + "\..\authConfig.js"))
     
-    $dictionary = @{ "client:Tenant" = $tenantName;"client:ClientId" = $clientAadApplication.AppId;"client:ClientScope" = ("api://"+$apiAadApplication.AppId+"/access_as_user") };
+    $dictionary = @{ "idb:Tenant" = $tenantName;"idb:ClientId" = $clientAadApplication.AppId;"idb:ClientScope" = ("api://"+$serviceAadApplication.AppId+"/.default");"idb:ClientUrl" = $serviceAadApplication.Web.HomePageUrl };
 
     Write-Host "Updating the sample config '$configFile' with the following config values:" -ForegroundColor Green 
     $dictionary
     Write-Host "-----------------"
 
+    ReplaceInTextFile -configFilePath $configFile -dictionary $dictionary
 
 if($isOpenSSL -eq 'Y')
 {
@@ -415,6 +463,18 @@ if ($null -eq (Get-Module -ListAvailable -Name "Microsoft.Graph.Applications")) 
 }
 
 Import-Module Microsoft.Graph.Applications
+
+if ($null -eq (Get-Module -ListAvailable -Name "Microsoft.Graph.Groups")) {
+    Install-Module "Microsoft.Graph.Groups" -Scope CurrentUser 
+}
+
+Import-Module Microsoft.Graph.Groups
+
+if ($null -eq (Get-Module -ListAvailable -Name "Microsoft.Graph.Users")) {
+    Install-Module "Microsoft.Graph.Users" -Scope CurrentUser 
+}
+
+Import-Module Microsoft.Graph.Users
 
 Set-Content -Value "<html><body><table>" -Path createdApps.html
 Add-Content -Value "<thead><tr><th>Application</th><th>AppId</th><th>Url in the Azure portal</th></tr></thead><tbody>" -Path createdApps.html
