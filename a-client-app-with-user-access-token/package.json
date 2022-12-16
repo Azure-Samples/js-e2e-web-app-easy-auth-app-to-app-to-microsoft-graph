@@ -1,7 +1,7 @@
 {
-  "name": "js-e2e-web-app-easy-auth-app-to-app-to-microsoft-graph",
+  "name": "a-client",
   "version": "1.0.0",
-  "description": "JavaScript server written with Express.js and Microsoft Graph",
+  "description": "a-client",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
