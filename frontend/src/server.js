@@ -2,8 +2,6 @@
 // Express.js app server
 import express from 'express';
 import { refreshTokenInMiddleware, isTokenExpired } from './refreshToken.js';
-//import { access } from 'fs';
-import { HTTPResponseError } from './error.js';
 import "isomorphic-fetch";
 import jwt_decode from 'jwt-decode';
 import { dirname } from 'path';
@@ -26,7 +24,6 @@ const refreshToken = async function (req, _, next) {
 
   // Get token from injected headers
   req.tokenMiddleware.token = req.headers['x-ms-token-aad-access-token'];
-  console.log(`refreshToken::req.headers['x-ms-token-aad-access-token']= ${req.headers['x-ms-token-aad-access-token']}`);
   
   if (!req.tokenMiddleware.token) {
     return next();
@@ -34,20 +31,15 @@ const refreshToken = async function (req, _, next) {
 
   // Decode token
   req.tokenMiddleware.decoded = jwt_decode(req.tokenMiddleware.token);
-  console.log(`refreshToken::req.tokenMiddleware.decoded= ${JSON.stringify(req.tokenMiddleware.decoded)}`);
 
   // Check if token is expired
   req.tokenMiddleware.isExpired = isTokenExpired(req.tokenMiddleware.decoded.exp);
-  console.log(`refreshToken::req.tokenMiddleware.isExpired= ${JSON.stringify(req.tokenMiddleware.isExpired)})`);
 
   // If token is expired, refresh it
   if (req.tokenMiddleware.isExpired.expired) {
 
-    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.isExpired.expired)})`);
-
     const refreshUrl = `https://${req.headers.host}/.auth/refresh`;
     req.tokenMiddleware.refreshedTokenResult = await refreshTokenInMiddleware(refreshUrl, req.tokenMiddleware.token);
-    console.log(`access-token-middleware - ${JSON.stringify(req.tokenMiddleware.refreshedTokenResult)})`);
   }
   return next();
 }
@@ -67,7 +59,6 @@ export const create = async () => {
 
   // Home page
   app.get('/', async (_, res) => {
-    console.log("/");
     res.render(`${__dirname}/views/home`);
   });
 
@@ -76,18 +67,16 @@ export const create = async () => {
 
     try {
 
-      console.log("/debug");
-
       // Data for rendered view
       const dataForView = {
         error: undefined,
         accessToken: req.headers['x-ms-token-aad-access-token'],
+        scope: req.tokenMiddleware?.decoded?.scp, 
+        user: req.tokenMiddleware?.decoded?.name,
         tokenMiddleware: sortJson(req.tokenMiddleware),
         headers: sortJson(req.headers),
         env: sortJson(process.env)
       };
-
-      console.log(`access-token - dataForView: ${JSON.stringify(dataForView)}`);
 
       // Success - View
       res.render(`${__dirname}/views/debug`, dataForView)
@@ -106,46 +95,40 @@ export const create = async () => {
     try {
 
       // Get remote URL from environment variable
-      let remoteUrl = (!process.env.NODE_ENV || process.env.NODE_ENV === "production")
-        ? process.env.API_B_URL
-        : "http://localhost:8081/get-profile";
+      // Should be in format of https://server/profile
+      let remoteUrl = process.env.BACKEND_URL + "/get-profile";
       if (!remoteUrl) {
-        console.log(`/get-profile:!remoteUrl= ${!remoteUrl}`);
         return res.render(`${__dirname}/views/profile`, { error: 'Client: No remote URL found' });
-      } else {
-        console.log(`remoteUrl = ${remoteUrl}`);
       }
 
       // Get access token from injected header
-      let accessToken = req.headers['x-ms-token-aad-access-token'];
-      console.log(`/get-profile:accessToken= ${accessToken}`);
-      if (!accessToken) {
+      const accessToken = req.headers['x-ms-token-aad-access-token'];
+      const authEnabled = process.env.APPSETTING_WEBSITE_AUTH_ENABLED==='true' ? true : false;
+      if (authEnabled && !accessToken) {
         return res.render(`${__dirname}/views/profile`, { error: 'Client: No access token found' });
-      }
+      } 
 
       // Get remote profile
-      const response = await getRemoteProfile(remoteUrl, accessToken);
-      console.log(response);
-
+      const response = await getRemoteProfile(remoteUrl, accessToken, authEnabled);
       const error = (response.error && Object.keys(response.error).length > 0 ) ? JSON.stringify(response.error) : "";
 
       // Data for rendered view
       const dataForView = {
         error,
+        remoteUrl,
         profile: sortJson(response.profile),
         headers: sortJson(response.headers),
         env: sortJson(response.env),
+        authEnabled,
         bearerToken: response.bearerToken,
+        raw: response
       };
 
       // Success - render view
       res.render(`${__dirname}/views/profile`, dataForView);
 
-
     } catch (error) {
-
       // Route-level Failure - render view
-      console.log(` Route-level Failure - render view ${error.message}`);
       res.render(`${__dirname}/views/profile`, error.message );
     }
   });

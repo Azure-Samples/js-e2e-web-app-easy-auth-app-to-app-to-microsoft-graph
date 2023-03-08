@@ -9,11 +9,13 @@
 </head>
 <style>
     .resources {
-      background-color: lightgray;
+        background-color: lightgray;
     }
-  </style>
+</style>
+
 <body>
-    <h2>Client (EJS) server - Profile</h2>
+    <h2>API server - Profile</h2>
+    <h5>Remote url: <%= remoteUrl %></h5>
 
     <% if (error) { %>
 
@@ -24,35 +26,37 @@
 
         <% } else { %>
 
-
-            <h3>Access token</h3>
+            <h3>Success</h3>
             <p>
-                <%= accessToken %>
+                <%- JSON.stringify(profile, null, 6) .replace(/\n( *)/g, function (match, p1) { return '<br>' + '&nbsp;'
+                    .repeat(p1.length); }); %>
             </p>
-
             <br><br><br><br>
+            <details>
+            <summary>Additional resources - Easy auth</summary>
             <div class="resources">
-                <p>Additional resources - Easy auth</p>
 
-                <h3>Token refresh middleware</h3>
-                <p>
-                    <%- JSON.stringify(tokenMiddleware, null, 6) .replace(/\n( *)/g, function (match, p1) {
-                        return '<br>' + '&nbsp;' .repeat(p1.length); }); %>
-                </p>
-
-                <h3>HTTP Headers</h3>
+                <h3>API Service HTTP Headers</h3>
                 <p>
                     <%- JSON.stringify(headers, null, 6) .replace(/\n( *)/g, function (match, p1) { return '<br>'
                         + '&nbsp;' .repeat(p1.length); }); %>
                 </p>
 
-                <h3>App Service environment variables</h3>
+                <h3>API Service environment variables</h3>
                 <p>
                     <%- JSON.stringify(env, null, 6) .replace(/\n( *)/g, function (match, p1) { return '<br>' + '&nbsp;'
                         .repeat(p1.length); }); %>
                 </p>
+
+                <h3>API Service bearer token</h3>
+                <p>
+                    <%= bearerToken %>
                 </p>
-                <% } %>
+            </div>
+            </details>
+            </p>
+            <% } %>
+
 </body>
 
 </html>
