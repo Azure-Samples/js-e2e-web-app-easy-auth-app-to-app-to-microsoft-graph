@@ -1,3 +1,4 @@
+// Use to sort env vars and headers for display
 export const sortJson = (json) => {
   if (!json) return {};
 
