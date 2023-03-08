@@ -23,32 +23,49 @@ export const create = async () => {
   // Get Profile and return to client
   app.get('/get-profile', async (req, res) => {
 
-    let profile;
-    let accessToken;
-    let bearerToken;
-
     try {
 
+      const profile = {
+        "displayName": "John Doe",
+
+        // return true if we have an access token
+        "withAuthentication": false
+      }
+
       bearerToken = req.headers['Authorization'] || req.headers['authorization'];
+      console.log(`backend server.js bearerToken ${!!bearerToken ? 'found' : 'not found'}`);
       if (!bearerToken)  {
         return res.status(401).json({ error: 'No bearer token found' });
       }
 
-      accessToken = bearerToken.split(' ')[1];
-      if (!accessToken){
-        return res.status(401).json({ error: 'No access token found' });
-      } 
+      if (bearerToken) {
+        const accessToken = bearerToken.split(' ')[1];
+        console.log(`backend server.js accessToken: ${!!accessToken ? 'found' : 'not found'}`);
 
-      profile = await getGraphProfile(accessToken);
-      console.log(`profile: ${JSON.stringify(profile)}`);
+        if (!accessToken){
+          return res.status(401).json({ error: 'No access token found' });
+        } 
 
-      return res.status(200).json({
-        profile,
+        profile.withAuthentication = true;
+
+        // TODO: get profile from Graph API
+        // provided in next article in this series
+        profile = await getGraphProfile(accessToken);
+        console.log(`profile: ${JSON.stringify(profile)}`);
+  
+      }
+
+      const dataToReturn = {
+        route: '/profile success',
+        profile: profile,
         headers: req.headers,
         bearerToken,
         env: process.env,
-        error: null
-      });
+        error: null,
+      }
+      console.log(`backend server.js profile: ${JSON.stringify(profile)}`)
+
+      return res.status(200).json(dataToReturn);
 
     } catch (err) {
       console.log(`/get-profile err: ${JSON.stringify(err)}`);
